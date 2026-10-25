@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------
+   Base
+   ------------------------------------------------------------------ */
+@layer base {
+    html {
+        @apply scroll-smooth;
+    }
+
+    body {
+        @apply bg-surface text-ink font-sans;
+    }
+
+    /* Inertia's page transition */
+    .page-enter-active,
+    .page-leave-active {
+        transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    .page-enter-from,
+    .page-leave-to {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}
+
+/* ------------------------------------------------------------------
+   Components
+   ------------------------------------------------------------------ */
+@layer components {
+    /* Primary call-to-action — the pink gradient used across the app. */
+    .btn-brand {
+        @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-gradient
+               px-5 py-3 font-semibold text-white shadow-glow transition
+               hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed
+               disabled:opacity-50 disabled:shadow-none;
+    }
+
+    /* Success action — used for "Withdraw" and payout confirmations. */
+    .btn-success {
+        @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-success
+               px-5 py-3 font-semibold text-surface transition
+               hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed
+               disabled:opacity-50;
+    }
+
+    /* Secondary / ghost button. */
+    .btn-ghost {
+        @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-surface-border
+               bg-surface-raised px-5 py-3 font-medium text-ink transition
+               hover:border-brand/50 hover:bg-surface-overlay active:scale-[0.98]
+               disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    /* Card surface used across the admin panel. */
+    .card {
+        @apply rounded-4xl border border-surface-border bg-surface-raised shadow-card;
+    }
+
+    /* Pill / chip (categories, status tags). */
+    .chip {
+        @apply inline-flex items-center gap-1.5 rounded-full border border-surface-border
+               bg-surface-overlay px-3 py-1.5 text-sm font-medium text-ink-muted transition;
+    }
+
+    .chip-active {
+        @apply border-brand/60 bg-brand/15 text-brand-soft;
+    }
+
+    /* Form fields. */
+    .field-label {
+        @apply mb-1.5 block text-sm font-medium text-ink-muted;
+    }
+
+    .field-input {
+        @apply w-full rounded-2xl border border-surface-border bg-surface-overlay px-4 py-3
+               text-ink placeholder:text-ink-faint outline-none transition
+               focus:border-brand focus:ring-2 focus:ring-brand/25;
+    }
+
+    /* Section heading. */
+    .section-title {
+        @apply font-display text-lg font-semibold text-ink;
+    }
+}
