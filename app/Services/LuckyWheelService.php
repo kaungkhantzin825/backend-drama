@@ -11,14 +11,22 @@ use Illuminate\Support\Facades\DB;
 /**
  * The lucky wheel.
  *
- * The prize table lives in `config/rewards.php`. The client renders whatever
- * segments it is given and then animates to the index the server picked — it
- * never decides the outcome itself.
+ * The prize table, odds and daily spins are managed by the admin (see
+ * RewardSettings). The client renders whatever segments it is given and then
+ * animates to the index the server picked — it never decides the outcome.
  */
 class LuckyWheelService
 {
-    public function __construct(private readonly WalletService $wallet)
+    public function __construct(
+        private readonly WalletService $wallet,
+        private readonly RewardSettings $settings,
+    ) {}
+
+    public function isEnabled(): bool
     {
+        $wheel = $this->settings->luckyWheel();
+
+        return $wheel['enabled'] && $wheel['daily_spins'] > 0 && $wheel['prizes'] !== [];
     }
 
     /**
@@ -28,15 +36,10 @@ class LuckyWheelService
      */
     public function segments(): array
     {
-        $prizes = (array) config('rewards.lucky_wheel.prizes', []);
-
         $segments = [];
 
-        foreach (array_values($prizes) as $index => $prize) {
-            $segments[] = [
-                'index' => $index,
-                'points' => (int) ($prize['points'] ?? 0),
-            ];
+        foreach ($this->settings->luckyWheel()['prizes'] as $index => $prize) {
+            $segments[] = ['index' => $index, 'points' => $prize['points']];
         }
 
         return $segments;
@@ -44,7 +47,7 @@ class LuckyWheelService
 
     public function dailyLimit(): int
     {
-        return max(1, (int) config('rewards.lucky_wheel.daily_spins', 3));
+        return $this->settings->luckyWheel()['daily_spins'];
     }
 
     public function spinsUsedToday(User $user): int
@@ -67,6 +70,10 @@ class LuckyWheelService
      */
     public function spin(User $user): array
     {
+        if (! $this->isEnabled()) {
+            throw new RewardLimitException('The lucky wheel is closed right now.');
+        }
+
         if ($this->spinsRemaining($user) <= 0) {
             throw new RewardLimitException(sprintf(
                 'You have used all %d spins for today. Come back tomorrow.',
@@ -74,13 +81,7 @@ class LuckyWheelService
             ));
         }
 
-        $segments = $this->segments();
-
-        if ($segments === []) {
-            throw new RewardLimitException('The wheel is not configured.');
-        }
-
-        $segment = $this->pick($segments);
+        $segment = $this->pick($this->settings->luckyWheel()['prizes']);
 
         return DB::transaction(function () use ($user, $segment): array {
             $spin = LuckyWheelSpin::query()->create([
@@ -114,31 +115,23 @@ class LuckyWheelService
     /**
      * Weighted pick. Uses `random_int` so the draw is not predictable.
      *
-     * @param  list<array{index: int, points: int}>  $segments
+     * @param  list<array{points: int, weight: int}>  $prizes
      * @return array{index: int, points: int}
      */
-    private function pick(array $segments): array
+    private function pick(array $prizes): array
     {
-        $prizes = array_values((array) config('rewards.lucky_wheel.prizes', []));
-
-        $weights = array_map(
-            fn (array $prize): int => max(1, (int) ($prize['weight'] ?? 1)),
-            $prizes,
-        );
-
-        $total = array_sum($weights);
-        $roll = random_int(1, max(1, $total));
+        $roll = random_int(1, max(1, array_sum(array_column($prizes, 'weight'))));
 
         $cursor = 0;
 
-        foreach ($segments as $position => $segment) {
-            $cursor += $weights[$position] ?? 1;
+        foreach ($prizes as $index => $prize) {
+            $cursor += $prize['weight'];
 
             if ($roll <= $cursor) {
-                return $segment;
+                return ['index' => $index, 'points' => $prize['points']];
             }
         }
 
-        return $segments[0];
+        return ['index' => 0, 'points' => $prizes[0]['points']];
     }
 }

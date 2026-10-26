@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\DB;
  */
 class WalletService
 {
+    public function __construct(private readonly RewardSettings $settings) {}
+
     /**
      * Credit points (positive delta).
      *
@@ -133,7 +135,13 @@ class WalletService
      */
     public function checkIn(User $user): PointsLedger
     {
-        $points = (int) config('rewards.check_in_points');
+        $settings = $this->settings->checkIn();
+
+        if (! $settings['enabled']) {
+            throw new RewardLimitException('Daily check-in is turned off right now.');
+        }
+
+        $points = $settings['points'];
         $key = sprintf('checkin:%d:%s', $user->id, now()->toDateString());
 
         if (PointsLedger::query()->where('idempotency_key', $key)->exists()) {
@@ -184,7 +192,13 @@ class WalletService
             return $existing;
         }
 
-        $limit = (int) config('rewards.daily_ad_limit');
+        $settings = $this->settings->adReward();
+
+        if (! $settings['enabled']) {
+            throw new RewardLimitException('Ad rewards are turned off right now.');
+        }
+
+        $limit = $settings['daily_limit'];
         $claimedToday = AdEvent::query()
             ->where('user_id', $user->id)
             ->where('status', AdEventStatus::Verified->value)
@@ -195,7 +209,7 @@ class WalletService
             throw RewardLimitException::dailyAds($limit);
         }
 
-        $points = (int) config('rewards.ad_reward_points');
+        $points = $settings['points'];
 
         return DB::transaction(function () use ($user, $placement, $idempotencyKey, $deviceId, $ip, $meta, $points): AdEvent {
             $event = AdEvent::query()->create([
@@ -260,13 +274,14 @@ class WalletService
      * so the ring carries on from one video to the next and across app
      * restarts instead of starting at zero.
      *
-     * @return array{seconds: int, interval_seconds: int, points_per_interval: int, earned_today: int, daily_cap: int, capped: bool}
+     * @return array{enabled: bool, seconds: int, interval_seconds: int, points_per_interval: int, earned_today: int, daily_cap: int, capped: bool}
      */
     public function watchRewardProgress(User $user): array
     {
-        $interval = max(10, (int) config('rewards.watch_reward_interval_seconds'));
-        $perInterval = max(1, (int) config('rewards.watch_reward_points'));
-        $cap = max(0, (int) config('rewards.daily_watch_reward_cap'));
+        $settings = $this->settings->watchReward();
+        $interval = $settings['interval_seconds'];
+        $perInterval = $settings['points'];
+        $cap = $settings['daily_cap'];
         $earnedToday = $this->watchPointsToday($user);
 
         $carry = (int) WatchRewardState::query()
@@ -274,6 +289,7 @@ class WalletService
             ->value('carry_seconds');
 
         return [
+            'enabled' => $settings['enabled'],
             'seconds' => min($carry, $interval - 1),
             'interval_seconds' => $interval,
             'points_per_interval' => $perInterval,
@@ -292,24 +308,33 @@ class WalletService
      */
     public function summary(User $user): array
     {
-        $perUnit = max(1, (int) config('rewards.points_per_currency_unit'));
-        $minimum = (int) config('rewards.min_withdrawal_points');
+        $cashOut = $this->settings->cashOut();
+        $checkIn = $this->settings->checkIn();
+        $adReward = $this->settings->adReward();
+        $perUnit = $cashOut['points_per_unit'];
+        $minimum = $cashOut['min_points'];
 
         return [
             'points_balance' => (int) $user->points_balance,
             'total_points_earned' => (int) $user->total_points_earned,
             'total_points_spent' => (int) $user->total_points_spent,
             'points_per_currency_unit' => $perUnit,
-            'currency' => 'USD',
-            'cash_value' => round($user->points_balance / $perUnit, 2),
+            'currency' => $cashOut['currency'],
+            'cash_value' => round($user->points_balance / $perUnit, RewardSettings::decimalsFor($cashOut['currency'])),
             'min_withdrawal_points' => $minimum,
             'can_withdraw' => $user->points_balance >= $minimum,
-            'check_in_available' => ! $this->hasCheckedInToday($user),
-            'check_in_points' => (int) config('rewards.check_in_points'),
-            'ad_reward_points' => (int) config('rewards.ad_reward_points'),
+            'check_in_enabled' => $checkIn['enabled'],
+            'check_in_available' => $checkIn['enabled'] && ! $this->hasCheckedInToday($user),
+            'check_in_points' => $checkIn['points'],
+            'ad_reward_enabled' => $adReward['enabled'],
+            'ad_reward_points' => $adReward['points'],
             'ads_claimed_today' => $this->adsClaimedToday($user),
-            'daily_ad_limit' => (int) config('rewards.daily_ad_limit'),
+            'daily_ad_limit' => $adReward['daily_limit'],
             'watch_reward' => $this->watchRewardProgress($user),
+            'payout_methods' => array_map(
+                fn (array $method): array => array_diff_key($method, ['enabled' => true]),
+                $this->settings->payoutMethods(enabledOnly: true),
+            ),
         ];
     }
 }

@@ -135,7 +135,8 @@ class AdminRewardsTest extends TestCase
 
     public function test_users_can_be_searched_by_name(): void
     {
-        $admin = User::factory()->admin()->create();
+        // Fixed identity: a random faker name or email could contain "ada".
+        $admin = User::factory()->admin()->create(['name' => 'Staff Member', 'email' => 'staff@example.com']);
         User::factory()->guest()->create(['name' => 'Ada Lovelace']);
         User::factory()->guest()->create(['name' => 'Grace Hopper']);
 

@@ -27,6 +27,7 @@ class LibraryService
     public function __construct(
         private readonly WalletService $wallet,
         private readonly TrafficRecorder $traffic,
+        private readonly RewardSettings $settings,
     ) {}
 
     /**
@@ -88,14 +89,16 @@ class LibraryService
      *    so replaying or inflating heartbeats cannot earn a minute in less
      *    than a minute;
      *  - the daily cap. Once it is reached, nothing is banked until tomorrow.
+     *    An admin switching watch rewards off works the same way (cap 0).
      *
      * @return array{seconds: int, awarded: int}
      */
     private function payWatchTime(User $user, Drama $drama, int $watched): array
     {
-        $interval = max(10, (int) config('rewards.watch_reward_interval_seconds'));
-        $perInterval = max(1, (int) config('rewards.watch_reward_points'));
-        $cap = max(0, (int) config('rewards.daily_watch_reward_cap'));
+        $settings = $this->settings->watchReward();
+        $interval = $settings['interval_seconds'];
+        $perInterval = $settings['points'];
+        $cap = $settings['enabled'] ? $settings['daily_cap'] : 0;
         $maxPerPing = max(1, (int) config('rewards.watch_max_seconds_per_ping'));
 
         WatchRewardState::query()->firstOrCreate(['user_id' => $user->id]);

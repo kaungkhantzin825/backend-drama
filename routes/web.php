@@ -5,6 +5,8 @@ use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AppConfigController as AdminAppConfigController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\DramaController as AdminDramaController;
+use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
+use App\Http\Controllers\Admin\RewardSettingsController as AdminRewardSettingsController;
 use App\Http\Controllers\Admin\RewardController as AdminRewardController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\TrafficController as AdminTrafficController;
@@ -56,6 +58,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('ads', fn () => inertia('admin/Ads'))->name('ads');
             Route::get('traffic', fn () => inertia('admin/Traffic'))->name('traffic');
             Route::get('settings', fn () => inertia('admin/Settings'))->name('settings');
+            Route::get('reward-settings', fn () => inertia('admin/RewardSettings'))->name('reward-settings');
+            Route::get('feedback', fn () => inertia('admin/Feedback'))->name('feedback');
         });
 
         /*
@@ -103,6 +107,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
                 Route::get('app-config', [AdminAppConfigController::class, 'show'])->name('app-config.show');
                 Route::put('app-config', [AdminAppConfigController::class, 'update'])->name('app-config.update');
+
+                Route::get('reward-settings', [AdminRewardSettingsController::class, 'show'])->name('reward-settings.show');
+                Route::put('reward-settings', [AdminRewardSettingsController::class, 'update'])->name('reward-settings.update');
+
+                Route::get('feedback/settings', [AdminFeedbackController::class, 'settings'])->name('feedback.settings');
+                Route::put('feedback/settings', [AdminFeedbackController::class, 'updateSettings'])->name('feedback.settings.update');
+                Route::get('feedback', [AdminFeedbackController::class, 'index'])->name('feedback.index');
+                Route::post('feedback/{feedback}/read', [AdminFeedbackController::class, 'markRead'])->name('feedback.read');
 
                 // ─── Traffic monitoring ──────────────────────────────────────
                 Route::prefix('traffic')->name('traffic.')->group(function () {

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\AppConfigService;
+use App\Services\RewardSettings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
@@ -45,7 +46,10 @@ class AppSetting extends Model
 
     protected static function booted(): void
     {
-        $forget = fn () => Cache::forget(AppConfigService::CACHE_KEY);
+        $forget = function (): void {
+            Cache::forget(AppConfigService::CACHE_KEY);
+            Cache::forget(RewardSettings::CACHE_KEY);
+        };
 
         static::saved($forget);
         static::deleted($forget);

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\DramaController;
+use App\Http\Controllers\Api\V1\FeedbackController;
 use App\Http\Controllers\Api\V1\HomeController;
 use App\Http\Controllers\Api\V1\LibraryController;
 use App\Http\Controllers\Api\V1\LuckyWheelController;
@@ -135,6 +136,14 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:60,1'])->group(functi
     Route::post('dramas/{drama}/favorite', [LibraryController::class, 'toggleFavorite'])
         ->whereNumber('drama')
         ->name('api.v1.dramas.favorite');
+
+    // ─── Feedback ────────────────────────────────────────────────────────────
+    Route::get('feedback/categories', [FeedbackController::class, 'categories'])
+        ->name('api.v1.feedback.categories');
+    // Own prefix, so these 5/min do not share the group's 60/min counter.
+    Route::post('feedback', [FeedbackController::class, 'store'])
+        ->middleware('throttle:5,1,feedback')
+        ->name('api.v1.feedback.store');
 
     // ─── Activity ────────────────────────────────────────────────────────────
     Route::post('activity/session', [TrafficController::class, 'session'])

@@ -165,6 +165,9 @@ class LibraryTest extends TestCase
 
     public function test_credited_watch_time_cannot_outrun_the_clock(): void
     {
+        // A real second ticking by mid-test would legitimately add a second.
+        $this->freezeTime();
+
         $user = User::factory()->create();
         $video = $this->video('long', 900);
 

@@ -5,9 +5,10 @@
 | Rewards economy
 |--------------------------------------------------------------------------
 |
-| One place for every number that decides how much a user earns or needs
-| before cashing out. Changing the economy is a config change, not a code
-| change — and the Flutter client reads the same values from /wallet.
+| The defaults for every number that decides how much a user earns or needs
+| before cashing out. Admins override them from the "Reward settings" page
+| (stored in `app_settings`, read through App\Services\RewardSettings) — and
+| the Flutter client reads the effective values from /wallet.
 |
 */
 
@@ -48,8 +49,17 @@ return [
     // Payout guard: how many withdrawals one account may request per day.
     'daily_withdrawal_limit' => (int) env('REWARDS_DAILY_WITHDRAWAL_LIMIT', 1),
 
-    // Supported payout methods.
-    'payout_methods' => ['paypal', 'bank', 'giftcard'],
+    // Payout currency. Points convert at `points_per_currency_unit` per unit.
+    'currency' => env('REWARDS_CURRENCY', 'USD'),
+
+    // Payout methods the user can choose from. Every method collects an
+    // account holder name plus one account field (`account_label`), checked as
+    // an email address when `input` is "email".
+    'payout_methods' => [
+        ['code' => 'kbzpay', 'name' => 'KBZPay', 'account_label' => 'KBZPay phone number', 'account_hint' => '09xxxxxxxxx', 'input' => 'phone', 'enabled' => true],
+        ['code' => 'wavepay', 'name' => 'WavePay', 'account_label' => 'WavePay phone number', 'account_hint' => '09xxxxxxxxx', 'input' => 'phone', 'enabled' => true],
+        ['code' => 'paypal', 'name' => 'PayPal', 'account_label' => 'PayPal email', 'account_hint' => 'you@example.com', 'input' => 'email', 'enabled' => true],
+    ],
 
     /*
     |--------------------------------------------------------------------------

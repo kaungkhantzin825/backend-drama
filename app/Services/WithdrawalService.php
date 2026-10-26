@@ -26,6 +26,7 @@ class WithdrawalService
     public function __construct(
         private readonly WalletService $wallet,
         private readonly NotificationService $notifications,
+        private readonly RewardSettings $settings,
     ) {}
 
     /**
@@ -35,13 +36,14 @@ class WithdrawalService
      */
     public function request(User $user, string $method, array $accountDetails): Withdrawal
     {
-        $minimum = (int) config('rewards.min_withdrawal_points');
+        $cashOut = $this->settings->cashOut();
+        $minimum = $cashOut['min_points'];
 
         if ($user->points_balance < $minimum) {
             throw RewardLimitException::belowMinimum($minimum);
         }
 
-        $dailyLimit = (int) config('rewards.daily_withdrawal_limit');
+        $dailyLimit = $cashOut['daily_limit'];
         $today = Withdrawal::query()
             ->where('user_id', $user->id)
             ->where('created_at', '>=', now()->startOfDay())
@@ -51,10 +53,11 @@ class WithdrawalService
             throw RewardLimitException::dailyWithdrawals($dailyLimit);
         }
 
-        $perUnit = max(1, (int) config('rewards.points_per_currency_unit'));
+        $perUnit = $cashOut['points_per_unit'];
+        $currency = $cashOut['currency'];
         $points = (int) $user->points_balance;
 
-        return DB::transaction(function () use ($user, $method, $accountDetails, $points, $perUnit): Withdrawal {
+        return DB::transaction(function () use ($user, $method, $accountDetails, $points, $perUnit, $currency): Withdrawal {
             $this->wallet->debit(
                 $user,
                 LedgerType::Withdrawal,
@@ -69,8 +72,10 @@ class WithdrawalService
             return Withdrawal::query()->create([
                 'user_id' => $user->id,
                 'points_amount' => $points,
-                'currency' => 'USD',
-                'amount_cents' => (int) round($points / $perUnit * 100),
+                'currency' => $currency,
+                'amount_cents' => (int) round(
+                    round($points / $perUnit, RewardSettings::decimalsFor($currency)) * 100,
+                ),
                 'method' => $method,
                 'account_details' => $accountDetails,
                 'status' => WithdrawalStatus::Pending->value,
@@ -126,7 +131,7 @@ class WithdrawalService
             $withdrawal,
             NotificationType::WithdrawalPaid,
             'Withdrawal paid',
-            sprintf('%s has been sent to your %s account.', $withdrawal->displayAmount(), $withdrawal->method),
+            sprintf('%s has been sent to your %s account.', $withdrawal->displayAmount(), $this->methodName($withdrawal->method)),
         );
 
         return $withdrawal;
@@ -224,6 +229,15 @@ class WithdrawalService
             ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
             ->latest('id')
             ->paginate(25);
+    }
+
+    /**
+     * "KBZPay" for "kbzpay"; the stored code for a method that has since been
+     * removed.
+     */
+    public function methodName(string $code): string
+    {
+        return $this->settings->payoutMethod($code)['name'] ?? $code;
     }
 
     private function assertOpen(Withdrawal $withdrawal): void

@@ -27,6 +27,7 @@ class LuckyWheelController extends Controller
         $user = $request->user();
 
         return ApiResponse::success('Wheel loaded.', [
+            'enabled' => $this->wheel->isEnabled(),
             'segments' => $this->wheel->segments(),
             'daily_limit' => $this->wheel->dailyLimit(),
             'spins_remaining' => $this->wheel->spinsRemaining($user),

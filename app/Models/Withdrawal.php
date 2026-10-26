@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\WithdrawalStatus;
+use App\Services\RewardSettings;
 use Database\Factories\WithdrawalFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -62,10 +63,13 @@ class Withdrawal extends Model
         return $this->belongsTo(User::class, 'processed_by');
     }
 
-    /** Payout amount as a display string, e.g. "12.50". */
+    /**
+     * Payout amount as a plain number string, e.g. "12.50" or "5000" — no
+     * thousands separator, because the app parses it.
+     */
     public function amountLabel(): string
     {
-        return number_format($this->amount_cents / 100, 2);
+        return number_format($this->amount_cents / 100, RewardSettings::decimalsFor((string) $this->currency), '.', '');
     }
 
     /**
@@ -78,17 +82,17 @@ class Withdrawal extends Model
      */
     public function displayAmount(): string
     {
-        $symbol = match (strtoupper((string) $this->currency)) {
+        $currency = strtoupper((string) $this->currency);
+        $amount = number_format($this->amount_cents / 100, RewardSettings::decimalsFor($currency));
+
+        $symbol = match ($currency) {
             'USD' => '$',
             'EUR' => '€',
             'GBP' => '£',
             default => '',
         };
 
-        if ($symbol !== '') {
-            return $symbol.$this->amountLabel();
-        }
-
-        return trim(((string) $this->currency).' '.$this->amountLabel());
+        // "$12.50", but "5,000 MMK".
+        return $symbol !== '' ? $symbol.$amount : trim($amount.' '.$currency);
     }
 }

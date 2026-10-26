@@ -113,4 +113,16 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | User feedback
+    |--------------------------------------------------------------------------
+    |
+    | Where in-app feedback is emailed, until an admin sets an address on the
+    | Feedback page.
+    |
+    */
+
+    'feedback_to' => env('FEEDBACK_EMAIL', env('ADMIN_EMAIL')),
+
 ];

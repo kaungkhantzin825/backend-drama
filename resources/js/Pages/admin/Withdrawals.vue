@@ -24,13 +24,18 @@ async function load(page = 1) {
 }
 
 async function act(row, action) {
+    const who = `${row.display_amount} via ${row.method_name} to ${row.account_details?.account_number ?? '—'}`
     try {
         if (action === 'reject') {
-            const note = window.prompt('Why is this being rejected?', 'Insufficient verification')
+            const note = window.prompt('Why is this being rejected? (the points go back to the user)', 'Insufficient verification')
             if (!note) return
             await api.post(`/admin/api/withdrawals/${row.id}/reject`, { note })
+        } else if (action === 'approve') {
+            if (!window.confirm(`Confirm this withdrawal?\n${who}\n\nThe user is told it is being prepared.`)) return
+            await api.post(`/admin/api/withdrawals/${row.id}/approve`, {})
         } else {
-            await api.post(`/admin/api/withdrawals/${row.id}/${action}`, {})
+            if (!window.confirm(`Mark as paid?\n${who}\n\nOnly do this after the money has been sent.`)) return
+            await api.post(`/admin/api/withdrawals/${row.id}/paid`, {})
         }
         await load(meta.value.current_page)
     } catch (e) {
@@ -44,7 +49,10 @@ onMounted(() => load())
 <template>
     <AdminLayout>
         <h1 class="font-display text-3xl font-bold tracking-tight">Withdrawals</h1>
-        <p class="mt-2 text-sm text-ink-muted">Points are debited on request and refunded if rejected.</p>
+        <p class="mt-2 text-sm text-ink-muted">
+            Points are debited on request. Confirm a request, send the money, then mark it paid — or reject it to refund the points.
+            The user gets a notification at every step.
+        </p>
 
         <p v-if="error" class="mt-4 rounded-xl bg-brand/10 px-4 py-3 text-sm text-brand-soft">{{ error }}</p>
 
@@ -78,18 +86,19 @@ onMounted(() => load())
                                 <p class="font-medium">{{ w.user?.name ?? '—' }}</p>
                                 <p class="text-xs text-ink-faint">{{ w.user?.email ?? '—' }}</p>
                             </td>
-                            <td class="py-3 font-semibold text-cash">{{ w.currency }} {{ w.amount }}</td>
+                            <td class="py-3 font-semibold text-cash">{{ w.display_amount }}</td>
                             <td class="py-3 text-ink-muted">{{ w.points_amount.toLocaleString() }}</td>
                             <td class="py-3 text-ink-muted">
-                                {{ w.method }}
-                                <span class="block text-xs text-ink-faint">
-                                    {{ w.account_details?.email ?? w.account_details?.account_name ?? '' }}
+                                {{ w.method_name }}
+                                <span class="block text-xs text-ink-faint">{{ w.account_details?.account_name ?? '' }}</span>
+                                <span class="block text-xs font-medium text-ink">
+                                    {{ w.account_details?.account_number ?? w.account_details?.email ?? '' }}
                                 </span>
                             </td>
                             <td class="py-3"><span class="chip">{{ w.status_label }}</span></td>
                             <td class="py-3">
                                 <div v-if="w.status === 'pending'" class="flex justify-end gap-2">
-                                    <button class="btn-brand text-xs" @click="act(w, 'approve')">Approve</button>
+                                    <button class="btn-brand text-xs" @click="act(w, 'approve')">Confirm</button>
                                     <button class="btn-ghost text-xs" @click="act(w, 'reject')">Reject</button>
                                 </div>
                                 <div v-else-if="w.status === 'approved'" class="flex justify-end">

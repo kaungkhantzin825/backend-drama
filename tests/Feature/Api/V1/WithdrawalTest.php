@@ -35,7 +35,7 @@ class WithdrawalTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/withdrawals', [
                 'method' => 'paypal',
-                'account_details' => ['email' => 'payout@example.com'],
+                'account_details' => ['account_name' => 'Aung Aung', 'account_number' => 'payout@example.com'],
             ])
             ->assertStatus(422)
             ->assertJsonPath('success', false);
@@ -51,7 +51,7 @@ class WithdrawalTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/withdrawals', [
                 'method' => 'paypal',
-                'account_details' => ['email' => 'payout@example.com'],
+                'account_details' => ['account_name' => 'Aung Aung', 'account_number' => 'payout@example.com'],
             ])
             ->assertStatus(201)
             ->assertJsonPath('data.points_amount', 5000)
@@ -63,33 +63,50 @@ class WithdrawalTest extends TestCase
 
         $withdrawal = Withdrawal::query()->sole();
         $this->assertSame(500, $withdrawal->amount_cents);
-        $this->assertSame(['email' => 'payout@example.com'], $withdrawal->account_details);
+        $this->assertSame(
+            ['account_name' => 'Aung Aung', 'account_number' => 'payout@example.com'],
+            $withdrawal->account_details,
+        );
     }
 
     public function test_the_payout_destination_is_required_for_the_chosen_method(): void
     {
         $user = $this->userWith(5000);
 
-        // PayPal without an email address is unpayable.
+        // Every method needs a holder name and an account.
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/withdrawals', [
-                'method' => 'paypal',
+                'method' => 'kbzpay',
                 'account_details' => [],
             ])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->assertJsonStructure(['data' => ['errors' => ['account_details']]]);
-
-        // A bank transfer needs an account name and number.
-        $this->actingAs($user, 'sanctum')
-            ->postJson('/api/v1/withdrawals', [
-                'method' => 'bank',
-                'account_details' => [],
-            ])
-            ->assertStatus(422)
             ->assertJsonStructure(['data' => ['errors' => ['account_details.account_name', 'account_details.account_number']]]);
 
+        // An email-type method (PayPal) checks the address.
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/withdrawals', [
+                'method' => 'paypal',
+                'account_details' => ['account_name' => 'Aung Aung', 'account_number' => '09123456789'],
+            ])
+            ->assertStatus(422)
+            ->assertJsonStructure(['data' => ['errors' => ['account_details.account_number']]]);
+
         $this->assertSame(5000, $user->fresh()->points_balance);
+    }
+
+    public function test_a_phone_wallet_payout_is_accepted(): void
+    {
+        $user = $this->userWith(5000);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/v1/withdrawals', [
+                'method' => 'kbzpay',
+                'account_details' => ['account_name' => 'Aung Aung', 'account_number' => '09123456789'],
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.method', 'kbzpay')
+            ->assertJsonPath('data.method_name', 'KBZPay');
     }
 
     public function test_an_unknown_payout_method_is_rejected(): void
@@ -110,7 +127,7 @@ class WithdrawalTest extends TestCase
 
         $this->actingAs($user, 'sanctum')->postJson('/api/v1/withdrawals', [
             'method' => 'paypal',
-            'account_details' => ['email' => 'payout@example.com'],
+            'account_details' => ['account_name' => 'Aung Aung', 'account_number' => 'payout@example.com'],
         ])->assertStatus(201);
 
         // Top the balance back up so the second attempt fails on the daily cap,
@@ -120,7 +137,7 @@ class WithdrawalTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/v1/withdrawals', [
                 'method' => 'paypal',
-                'account_details' => ['email' => 'payout@example.com'],
+                'account_details' => ['account_name' => 'Aung Aung', 'account_number' => 'payout@example.com'],
             ])
             ->assertStatus(422)
             ->assertJsonPath('success', false);
@@ -132,7 +149,7 @@ class WithdrawalTest extends TestCase
     {
         $this->postJson('/api/v1/withdrawals', [
             'method' => 'paypal',
-            'account_details' => ['email' => 'payout@example.com'],
+            'account_details' => ['account_name' => 'Aung Aung', 'account_number' => 'payout@example.com'],
         ])->assertStatus(401);
     }
 

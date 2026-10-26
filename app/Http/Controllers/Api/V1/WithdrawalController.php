@@ -31,6 +31,7 @@ class WithdrawalController extends Controller
                 'currency' => $withdrawal->currency,
                 'amount' => $withdrawal->amountLabel(),
                 'method' => $withdrawal->method,
+                'method_name' => $this->withdrawals->methodName($withdrawal->method),
                 'status' => $withdrawal->status->value,
                 'status_label' => $withdrawal->status->label(),
                 'admin_note' => $withdrawal->admin_note,
@@ -62,7 +63,10 @@ class WithdrawalController extends Controller
         return ApiResponse::success('Withdrawal requested.', [
             'id' => $withdrawal->id,
             'points_amount' => $withdrawal->points_amount,
+            'currency' => $withdrawal->currency,
             'amount' => $withdrawal->amountLabel(),
+            'method' => $withdrawal->method,
+            'method_name' => $this->withdrawals->methodName($withdrawal->method),
             'status' => $withdrawal->status->value,
         ], 201);
     }

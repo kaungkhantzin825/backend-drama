@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { useAdminApi } from '@/lib/adminApi'
 
@@ -12,6 +12,24 @@ const config = ref(null)
 const saving = ref(false)
 const error = ref('')
 const notice = ref('')
+
+/**
+ * Shortcut over the two version fields: forcing an update means the minimum
+ * supported version is the latest one. Unticking restores the old minimum.
+ */
+let previousMinimum = '1.0.0'
+const forceUpdate = computed({
+    get: () => config.value.app_version.min_supported === config.value.app_version.latest,
+    set: (on) => {
+        const version = config.value.app_version
+        if (on) {
+            if (version.min_supported !== version.latest) previousMinimum = version.min_supported
+            version.min_supported = version.latest
+        } else {
+            version.min_supported = previousMinimum !== version.latest ? previousMinimum : '1.0.0'
+        }
+    },
+})
 
 onMounted(async () => {
     try {
@@ -58,6 +76,14 @@ async function save() {
                     Below the <b>minimum</b>, the app shows a blocking “Update required” screen and the API answers 426.
                     Below the <b>latest</b>, it offers an optional update once per launch.
                 </p>
+
+                <label class="mt-4 flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3">
+                    <input v-model="forceUpdate" type="checkbox" class="h-4 w-4" />
+                    <span class="text-sm">
+                        <b :class="forceUpdate ? 'text-brand-soft' : ''">Force update</b>
+                        — every app older than {{ config.app_version.latest }} must update before it can be used.
+                    </span>
+                </label>
 
                 <div class="mt-4 grid gap-4 sm:grid-cols-2">
                     <label class="block">

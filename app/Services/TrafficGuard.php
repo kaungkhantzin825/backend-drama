@@ -322,7 +322,7 @@ class TrafficGuard
     private function scanAdCapStreaks(): int
     {
         $days = max(2, (int) config('traffic.ad_cap_streak_days'));
-        $cap = (int) config('rewards.daily_ad_limit');
+        $cap = app(RewardSettings::class)->adReward()['daily_limit'];
 
         $streak = null;
 
